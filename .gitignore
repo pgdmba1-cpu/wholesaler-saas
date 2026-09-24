@@ -1,0 +1,15 @@
+# Don't upload your local database — production will have its own
+*.db
+
+# Python cache files — regenerated automatically, not needed in git
+__pycache__/
+*.pyc
+
+# Virtual environments, if you ever create one
+venv/
+.venv/
+env/
+
+# OS clutter
+.DS_Store
+Thumbs.db

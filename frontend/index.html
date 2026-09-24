@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wholesaler Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #22c55e;
+    --danger: #ef4444;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin-top: 0; font-size: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #0f172a;
+    color: var(--text);
+    font-size: 14px;
+  }
+  button {
+    margin-top: 16px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: #052e12;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button:hover { opacity: 0.9; }
+  .result {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 8px;
+    background: #0f172a;
+    border: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .result .row { display: flex; justify-content: space-between; padding: 3px 0; }
+  .result .row span:last-child { font-weight: 600; }
+  .viable { color: var(--accent); font-weight: 700; }
+  .not-viable { color: var(--danger); font-weight: 700; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .buyer-row { padding: 10px; border-bottom: 1px solid var(--border); }
+  .buyer-row:last-child { border-bottom: none; }
+  .score { float: right; font-weight: 700; }
+  .score.high { color: var(--accent); }
+  .score.low { color: var(--danger); }
+  .error { color: var(--danger); margin-top: 10px; font-size: 13px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .hidden { display: none; }
+  #loginScreen { max-width: 360px; margin: 60px auto; }
+
+  /* ---- Kanban board ---- */
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 12px; }
+  @media (max-width: 1100px) { .board { grid-template-columns: 1fr; } }
+  .column {
+    background: #0f172a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 80px;
+  }
+  .column h3 { font-size: 13px; color: var(--muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .deal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .deal-card .addr { font-weight: 600; margin-bottom: 4px; }
+  .deal-card .price { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .deal-card select {
+    width: 100%;
+    padding: 5px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: #0f172a;
+    color: var(--text);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN / SIGNUP SCREEN ================= -->
+<div id="loginScreen" class="card">
+  <h2 id="authTitle">Log in</h2>
+  <label>Email</label>
+  <input id="authEmail" type="email" value="alice@example.com">
+  <label>Password</label>
+  <input id="authPassword" type="password" value="hunter2pass">
+  <button onclick="handleLogin()">Log in</button>
+  <button class="secondary" onclick="handleSignup()">Sign up instead</button>
+  <div id="authError" class="error"></div>
+</div>
+
+<!-- ================= MAIN APP (hidden until logged in) ================= -->
+<div id="app" class="hidden">
+
+  <div class="topbar">
+    <div>
+      <h1>Wholesaler Dashboard</h1>
+      <p class="sub">Logged in as <span id="currentUserEmail"></span></p>
+    </div>
+    <div>
+      <button class="secondary" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- ================= DEAL ANALYZER ================= -->
+    <div class="card">
+      <h2>Deal Analyzer</h2>
+
+      <label>Subject property sqft</label>
+      <input id="sqft" type="number" value="1500">
+
+      <label>Repair estimate ($)</label>
+      <input id="repair" type="number" value="25000">
+
+      <label>Contract price ($)</label>
+      <input id="contractPrice" type="number" value="110000">
+
+      <label>Comp 1 — sale price ($)</label>
+      <input id="comp1Price" type="number" value="225000">
+      <label>Comp 1 — sqft</label>
+      <input id="comp1Sqft" type="number" value="1480">
+
+      <label>Comp 2 — sale price ($)</label>
+      <input id="comp2Price" type="number" value="232000">
+      <label>Comp 2 — sqft</label>
+      <input id="comp2Sqft" type="number" value="1550">
+
+      <button onclick="analyzeDeal()">Analyze Deal</button>
+
+      <div id="dealResult"></div>
+      <div id="dealError" class="error"></div>
+    </div>
+
+    <!-- ================= BUYER CRM ================= -->
+    <div class="card">
+      <h2>Add a Buyer</h2>
+
+      <label>Name</label>
+      <input id="buyerName" type="text" value="Alpha Investments">
+
+      <label>Market (city)</label>
+      <input id="buyerMarket" type="text" value="Kochi">
+
+      <label>Min price ($)</label>
+      <input id="buyerMin" type="number" value="100000">
+
+      <label>Max price ($)</label>
+      <input id="buyerMax" type="number" value="300000">
+
+      <button onclick="addBuyer()">Add Buyer</button>
+      <div id="buyerAddResult" class="note"></div>
+
+      <hr style="border-color: var(--border); margin: 20px 0;">
+
+      <h2>Match Buyers to a Deal</h2>
+      <label>Deal market (city)</label>
+      <input id="matchMarket" type="text" value="Kochi">
+      <label>Deal price ($)</label>
+      <input id="matchPrice" type="number" value="220000">
+
+      <button onclick="matchBuyers()">Find Matches</button>
+      <div id="matchResult"></div>
+      <div id="matchError" class="error"></div>
+    </div>
+
+  </div>
+
+  <!-- ================= DEAL PIPELINE ================= -->
+  <div class="card">
+    <h2>Deal Pipeline</h2>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div>
+        <label>Address</label>
+        <input id="pipelineAddress" type="text" value="789 Pine Rd">
+      </div>
+      <div>
+        <label>City</label>
+        <input id="pipelineCity" type="text" value="Kochi">
+      </div>
+      <div>
+        <label>Contract price ($)</label>
+        <input id="pipelinePrice" type="number" value="130000">
+      </div>
+    </div>
+    <button onclick="createPipelineDeal()">Add to Pipeline</button>
+    <div id="pipelineAddError" class="error"></div>
+
+    <div id="board" class="board"></div>
+  </div>
+
+</div>
+
+<script>
+  const API_BASE = "https://wholesaler-saas.onrender.com";
+
+  // ---------- Auth state ----------
+  // The token proves who's logged in. We keep it in memory (a plain
+  // variable) so it resets when you close the tab — you'll need to
+  // log in again next time, which is normal and expected behavior.
+  let authToken = null;
+  let currentUser = null;
+
+  function authHeaders() {
+    return { "Authorization": "Bearer " + authToken };
+  }
+
+  async function handleSignup() {
+    await authRequest("/auth/signup");
+  }
+
+  async function handleLogin() {
+    await authRequest("/auth/login");
+  }
+
+  async function authRequest(path) {
+    const email = document.getElementById("authEmail").value;
+    const password = document.getElementById("authPassword").value;
+    document.getElementById("authError").textContent = "";
+
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Login failed");
+
+      authToken = data.access_token;
+      currentUser = data.user;
+      document.getElementById("currentUserEmail").textContent = currentUser.email;
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
+      loadBoard();
+    } catch (e) {
+      document.getElementById("authError").textContent = e.message;
+    }
+  }
+
+  function logout() {
+    authToken = null;
+    currentUser = null;
+    document.getElementById("app").classList.add("hidden");
+    document.getElementById("loginScreen").classList.remove("hidden");
+  }
+
+  // ---------- Deal Analyzer (doesn't require login) ----------
+  async function analyzeDeal() {
+    const payload = {
+      subject_sqft: Number(document.getElementById("sqft").value),
+      repair_estimate: Number(document.getElementById("repair").value),
+      contract_price: Number(document.getElementById("contractPrice").value),
+      comps: [
+        { address: "Comp 1", sale_price: Number(document.getElementById("comp1Price").value), sqft: Number(document.getElementById("comp1Sqft").value) },
+        { address: "Comp 2", sale_price: Number(document.getElementById("comp2Price").value), sqft: Number(document.getElementById("comp2Sqft").value) }
+      ]
+    };
+    document.getElementById("dealError").textContent = "";
+    document.getElementById("dealResult").innerHTML = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/deals/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || "Request failed");
+      const data = await res.json();
+
+      document.getElementById("dealResult").innerHTML = `
+        <div class="result">
+          <div class="row"><span>ARV</span><span>$${data.arv.toLocaleString()}</span></div>
+          <div class="row"><span>Max Allowable Offer</span><span>$${data.mao.toLocaleString()}</span></div>
+          <div class="row"><span>Max assignment fee</span><span>$${data.max_assignment_fee.toLocaleString()}</span></div>
+          <div class="row"><span>Projected assignment fee</span><span>$${data.projected_assignment_fee.toLocaleString()}</span></div>
+          <div class="row"><span>Deal viable?</span><span class="${data.is_viable ? 'viable' : 'not-viable'}">${data.is_viable ? 'YES' : 'NO'}</span></div>
+          ${data.notes.map(n => `<div class="note">• ${n}</div>`).join("")}
+        </div>
+      `;
+    } catch (e) {
+      document.getElementById("dealError").textContent = e.message;
+    }
+  }
+
+  // ---------- Buyer CRM (requires login — token sent on every request) ----------
+  async function addBuyer() {
+    const payload = {
+      name: document.getElementById("buyerName").value,
+      markets: [document.getElementById("buyerMarket").value],
+      min_price: Number(document.getElementById("buyerMin").value),
+      max_price: Number(document.getElementById("buyerMax").value)
+    };
+    try {
+      const res = await fetch(`${API_BASE}/buyers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      document.getElementById("buyerAddResult").textContent = `Added "${data.name}" (id: ${data.id.slice(0, 8)}...)`;
+    } catch (e) {
+      document.getElementById("buyerAddResult").textContent = "Error: " + e.message;
+    }
+  }
+
+  async function matchBuyers() {
+    const payload = {
+      market: document.getElementById("matchMarket").value,
+      price: Number(document.getElementById("matchPrice").value)
+    };
+    document.getElementById("matchError").textContent = "";
+    document.getElementById("matchResult").innerHTML = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/buyers/match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      const matches = await res.json();
+      if (!res.ok) throw new Error(matches.detail || "Request failed");
+
+      if (matches.length === 0) {
+        document.getElementById("matchResult").innerHTML = `<div class="note">No buyers added yet — add one above first.</div>`;
+        return;
+      }
+      document.getElementById("matchResult").innerHTML = `
+        <div class="result">
+          ${matches.map(m => `
+            <div class="buyer-row">
+              <strong>${m.buyer.name}</strong>
+              <span class="score ${m.score >= 50 ? 'high' : 'low'}">${m.score}%</span>
+              <div class="note">${m.reasons.join(" · ")}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } catch (e) {
+      document.getElementById("matchError").textContent = e.message;
+    }
+  }
+  // ---------- Deal Pipeline ----------
+  const PIPELINE_STAGES = ["New Lead", "Under Contract", "Assigned", "Closed", "Dead"];
+
+  async function createPipelineDeal() {
+    const payload = {
+      address: document.getElementById("pipelineAddress").value,
+      city: document.getElementById("pipelineCity").value,
+      contract_price: Number(document.getElementById("pipelinePrice").value)
+    };
+    document.getElementById("pipelineAddError").textContent = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/deals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      await loadBoard();
+    } catch (e) {
+      document.getElementById("pipelineAddError").textContent = e.message;
+    }
+  }
+
+  async function loadBoard() {
+    try {
+      const res = await fetch(`${API_BASE}/deals`, { headers: authHeaders() });
+      const deals = await res.json();
+      if (!res.ok) throw new Error(deals.detail || "Request failed");
+      renderBoard(deals);
+    } catch (e) {
+      document.getElementById("board").innerHTML = `<div class="error">${e.message}</div>`;
+    }
+  }
+
+  function renderBoard(deals) {
+    const board = document.getElementById("board");
+    board.innerHTML = PIPELINE_STAGES.map(stage => {
+      const dealsInStage = deals.filter(d => d.stage === stage);
+      return `
+        <div class="column">
+          <h3>${stage} (${dealsInStage.length})</h3>
+          ${dealsInStage.map(d => `
+            <div class="deal-card">
+              <div class="addr">${d.address}${d.city ? ", " + d.city : ""}</div>
+              <div class="price">${d.contract_price ? "$" + d.contract_price.toLocaleString() : "No price set"}</div>
+              <select onchange="moveDeal('${d.id}', this.value)">
+                ${PIPELINE_STAGES.map(s => `<option value="${s}" ${s === d.stage ? "selected" : ""}>${s}</option>`).join("")}
+              </select>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function moveDeal(dealId, newStage) {
+    try {
+      const res = await fetch(`${API_BASE}/deals/${dealId}/stage`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ stage: newStage })
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || "Request failed");
+      await loadBoard();
+    } catch (e) {
+      alert("Couldn't move deal: " + e.message);
+    }
+  }
+</script>
+
+</body>
+</html>
